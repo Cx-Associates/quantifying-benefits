@@ -6,6 +6,7 @@
 <title>CxA Benefits Database</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
 :root{--orange:#f8991c;--blue:#005a88;--gray:#6d6e70;--light:#f5f6f7;--border:#dde1e4;--red:#c0392b;--green:#27ae60}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -100,9 +101,10 @@ tr.detail-row td{background:#f8fafb;border-bottom:2px solid var(--border)}
 </head>
 <body>
 <header>
-  <div><h1>⚡ Quantified Benefits Database</h1><span style="font-size:12px;opacity:.7">Cx Associates</span></div>
+  <div><h1>⚡ Quantified Benefits Database</h1><span style="font-size:12px;opacity:.7">Cx Associates · Live Supabase Data</span></div>
   <span id="recCount" style="margin-left:auto;font-size:12px;opacity:.8"></span>
 </header>
+<div id="statusBanner" style="display:none;padding:8px 24px;font-size:13px;text-align:center"></div>
 <nav>
   <button class="active" onclick="switchView('browse',this)">Browse &amp; Filter</button>
   <button onclick="switchView('add',this)">Add / Edit Record</button>
@@ -264,7 +266,6 @@ tr.detail-row td{background:#f8fafb;border-bottom:2px solid var(--border)}
     <div class="sc">
       <h3>Benefit Types</h3>
       <div id="btList"></div>
-      <div class="add-row"><input type="text" id="newBT" placeholder="Add new benefit type..."><button class="btn btn-primary btn-sm" onclick="addItem('benefitType')">Add</button></div>
     </div>
     <div class="sc">
       <h3>Project Types</h3>
@@ -277,13 +278,13 @@ tr.detail-row td{background:#f8fafb;border-bottom:2px solid var(--border)}
 <div id="view-data" class="view">
   <div class="data-card">
     <h3>Import CSV</h3>
-    <p>Upload your exported Salesforce CSV. The importer will clean numeric fields, treat NA/missing values as unknown (not zero), and report any data issues found.</p>
+    <p>Upload a Salesforce-style CSV to bulk-add records to the shared Supabase database. The importer cleans numeric fields, treats NA/missing values as unknown (not zero), and reports any data issues found. This is additive — existing records are not removed.</p>
     <input type="file" id="csvFile" accept=".csv" onchange="importCSV()" style="display:block;margin-bottom:10px">
     <div class="imp-sum" id="impSum"></div>
   </div>
   <div class="data-card">
     <h3>Export Data</h3>
-    <p>Download the current database as JSON (for backup or Supabase import) or as CSV.</p>
+    <p>Download the current database as JSON or CSV for backup purposes.</p>
     <div style="display:flex;gap:10px">
       <button class="btn btn-primary" onclick="exportJSON()">Export JSON</button>
       <button class="btn btn-ghost" onclick="exportCSVData()">Export CSV</button>
@@ -302,12 +303,64 @@ var expandedId = null;
 var DEFAULT_BT = ['Code','Safety','IAQ','O&M','Energy Savings','First Cost'];
 var settings = { benefitTypes: DEFAULT_BT.slice(), projectTypes: [] };
 
-function init() {
-  var s = localStorage.getItem('cxa_benefits');
-  var ss = localStorage.getItem('cxa_settings');
-  if (s) { try { records = JSON.parse(s); } catch(e) { records = []; } }
-  if (ss) { try { var sv = JSON.parse(ss); settings.projectTypes = sv.projectTypes || []; } catch(e) {} }
-  settings.benefitTypes = DEFAULT_BT.slice();
+// ── Supabase setup ──────────────────────────────────────────
+var SUPABASE_URL = 'https://ykddpajaqftrcmmhizoq.supabase.co';
+var SUPABASE_KEY = 'sb_publishable_Y-Jzj8i4_FDJeg6pRSOkpw_p7q1BGlE';
+var sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+function rowToRecord(row) {
+  return {
+    id: row.id,
+    projectNumber: row.project_number,
+    projectName: row.project_name || '',
+    benefitName: row.benefit_name || '',
+    benefitTypes: row.benefit_types || [],
+    projectType: row.project_type || '',
+    startDate: row.start_date,
+    completionDate: row.completion_date,
+    annualCostSavings: row.annual_cost_savings,
+    firstCostSavings: row.first_cost_savings,
+    electricSavings: row.electric_savings,
+    districtSteamSavings: row.district_steam_savings,
+    fuelOilSavings: row.fuel_oil_savings,
+    naturalGasSavings: row.natural_gas_savings,
+    propaneSavings: row.propane_savings,
+    peakDemandReduction: row.peak_demand_reduction,
+    narrative: row.narrative || ''
+  };
+}
+
+function recordToRow(r) {
+  return {
+    project_number: r.projectNumber,
+    project_name: r.projectName,
+    benefit_name: r.benefitName,
+    benefit_types: r.benefitTypes || [],
+    project_type: r.projectType,
+    start_date: r.startDate,
+    completion_date: r.completionDate,
+    annual_cost_savings: r.annualCostSavings,
+    first_cost_savings: r.firstCostSavings,
+    electric_savings: r.electricSavings,
+    district_steam_savings: r.districtSteamSavings,
+    fuel_oil_savings: r.fuelOilSavings,
+    natural_gas_savings: r.naturalGasSavings,
+    propane_savings: r.propaneSavings,
+    peak_demand_reduction: r.peakDemandReduction,
+    narrative: r.narrative
+  };
+}
+
+async function loadFromSupabase() {
+  showStatus('Loading data...');
+  var res = await sb.from('benefits_records').select('*').order('project_number');
+  if (res.error) { showStatus('Error loading data: ' + res.error.message, true); return; }
+  records = (res.data || []).map(rowToRecord);
+
+  var ptRes = await sb.from('benefits_project_types').select('name').order('name');
+  if (!ptRes.error) settings.projectTypes = (ptRes.data || []).map(function(r){ return r.name; });
+
+  hideStatus();
   applyFilters();
   updateFilterDropdowns();
   populatePT();
@@ -316,10 +369,23 @@ function init() {
   renderSettingsLists();
 }
 
-function save() {
-  localStorage.setItem('cxa_benefits', JSON.stringify(records));
-  localStorage.setItem('cxa_settings', JSON.stringify(settings));
-  updateDataStats();
+function showStatus(msg, isError) {
+  var el = document.getElementById('statusBanner');
+  if (!el) return;
+  el.style.display = 'block';
+  el.style.background = isError ? '#fff3cd' : '#e0edf5';
+  el.style.color = isError ? '#856404' : 'var(--blue)';
+  el.textContent = msg;
+}
+
+function hideStatus() {
+  var el = document.getElementById('statusBanner');
+  if (el) el.style.display = 'none';
+}
+
+function init() {
+  settings.benefitTypes = DEFAULT_BT.slice();
+  loadFromSupabase();
 }
 
 function switchView(name, btn) {
@@ -643,9 +709,9 @@ function numOrNull(id) {
   return isNaN(n) ? null : n;
 }
 
-function saveRecord() {
+async function saveRecord() {
   var r = {
-    id: editingId || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36)),
+    id: editingId,
     projectNumber: parseInt(document.getElementById('fPN').value) || null,
     projectName: document.getElementById('fPName').value.trim(),
     benefitName: document.getElementById('fBN').value.trim(),
@@ -663,12 +729,24 @@ function saveRecord() {
     peakDemandReduction: numOrNull('fPDR'),
     narrative: document.getElementById('fNarr').value.trim()
   };
+  showStatus('Saving...');
+  var row = recordToRow(r);
+  var res;
   if (editingId) {
-    for (var i = 0; i < records.length; i++) { if (records[i].id === editingId) { records[i] = r; break; } }
+    res = await sb.from('benefits_records').update(row).eq('id', editingId).select().single();
   } else {
-    records.push(r);
+    res = await sb.from('benefits_records').insert(row).select().single();
   }
-  save(); applyFilters(); updateFilterDropdowns(); cancelEdit();
+  if (res.error) { showStatus('Error saving: ' + res.error.message, true); return; }
+
+  var saved = rowToRecord(res.data);
+  if (editingId) {
+    for (var i = 0; i < records.length; i++) { if (records[i].id === editingId) { records[i] = saved; break; } }
+  } else {
+    records.push(saved);
+  }
+  hideStatus();
+  applyFilters(); updateFilterDropdowns(); cancelEdit();
   switchView('browse', document.querySelectorAll('nav button')[0]);
 }
 
@@ -681,10 +759,14 @@ function cancelEdit() {
   renderPills([]);
 }
 
-function deleteRecord() {
+async function deleteRecord() {
   if (!confirm('Delete this record? This cannot be undone.')) return;
+  showStatus('Deleting...');
+  var res = await sb.from('benefits_records').delete().eq('id', editingId);
+  if (res.error) { showStatus('Error deleting: ' + res.error.message, true); return; }
   records = records.filter(function(r){ return r.id !== editingId; });
-  save(); applyFilters(); updateFilterDropdowns(); cancelEdit();
+  hideStatus();
+  applyFilters(); updateFilterDropdowns(); cancelEdit();
   switchView('browse', document.querySelectorAll('nav button')[0]);
 }
 
@@ -737,29 +819,39 @@ function updateFilterDropdowns() {
 }
 
 function renderSettingsLists() {
-  ['benefitType','projectType'].forEach(function(key) {
-    var lk = key + 's';
-    var el = document.getElementById(key === 'benefitType' ? 'btList' : 'ptList');
-    if (!settings[lk].length) { el.innerHTML = '<div style="color:var(--gray);font-size:13px;padding:8px 0">No entries yet.</div>'; return; }
-    el.innerHTML = settings[lk].map(function(v, i) {
-      return '<div class="list-item"><span>' + esc(v) + '</span><button class="btn btn-danger btn-sm" onclick="removeItem(\'' + key + '\',' + i + ')">✕</button></div>';
+  var btEl = document.getElementById('btList');
+  btEl.innerHTML = '<div style="color:var(--gray);font-size:12px;padding:8px 0">Benefit types are fixed for consistency and managed in code, not editable here.</div>' +
+    settings.benefitTypes.map(function(v) {
+      return '<div class="list-item"><span>' + esc(v) + '</span></div>';
     }).join('');
-  });
+
+  var ptEl = document.getElementById('ptList');
+  if (!settings.projectTypes.length) { ptEl.innerHTML = '<div style="color:var(--gray);font-size:13px;padding:8px 0">No entries yet.</div>'; return; }
+  ptEl.innerHTML = settings.projectTypes.map(function(v) {
+    return '<div class="list-item"><span>' + esc(v) + '</span><button class="btn btn-danger btn-sm" onclick="removeProjectType(\'' + esc(v).replace(/'/g,"\\'") + '\')">✕</button></div>';
+  }).join('');
 }
 
-function addItem(key) {
-  var inputId = key === 'benefitType' ? 'newBT' : 'newPT';
-  var lk = key + 's';
-  var val = document.getElementById(inputId).value.trim();
-  if (!val || settings[lk].indexOf(val) !== -1) return;
-  settings[lk].push(val); settings[lk].sort();
-  document.getElementById(inputId).value = '';
-  save(); renderSettingsLists(); populatePT(); renderPills(getSelectedPills());
+async function addItem(key) {
+  if (key !== 'projectType') return; // benefit types are fixed, not user-editable
+  var val = document.getElementById('newPT').value.trim();
+  if (!val || settings.projectTypes.indexOf(val) !== -1) return;
+  showStatus('Adding...');
+  var res = await sb.from('benefits_project_types').insert({ name: val }).select().single();
+  if (res.error) { showStatus('Error adding: ' + res.error.message, true); return; }
+  settings.projectTypes.push(val); settings.projectTypes.sort();
+  document.getElementById('newPT').value = '';
+  hideStatus();
+  renderSettingsLists(); populatePT(); renderPills(getSelectedPills());
 }
 
-function removeItem(key, idx) {
-  settings[key + 's'].splice(idx, 1);
-  save(); renderSettingsLists(); populatePT(); renderPills(getSelectedPills());
+async function removeProjectType(name) {
+  showStatus('Removing...');
+  var res = await sb.from('benefits_project_types').delete().eq('name', name);
+  if (res.error) { showStatus('Error removing: ' + res.error.message, true); return; }
+  settings.projectTypes = settings.projectTypes.filter(function(v){ return v !== name; });
+  hideStatus();
+  renderSettingsLists(); populatePT(); renderPills(getSelectedPills());
 }
 
 var NA_VALS = { 'na':1,'n/a':1,'#n/a':1,'null':1,'none':1,'':1,'undefined':1 };
@@ -800,7 +892,8 @@ function importCSV() {
   if (!file) return;
   Papa.parse(file, {
     header: true, skipEmptyLines: true,
-    complete: function(results) {
+    complete: async function(results) {
+      showStatus('Processing CSV...');
       var cols = results.meta.fields || [];
       var blankCol = '';
       for (var c = 0; c < cols.length; c++) { if (cols[c].trim() === '') { blankCol = cols[c]; break; } }
@@ -823,7 +916,10 @@ function importCSV() {
       };
 
       var issues = [];
-      var newRecords = results.data.map(function(row, i) {
+      var newProjectTypes = {};
+      settings.projectTypes.forEach(function(pt){ newProjectTypes[pt] = 1; });
+
+      var rowsToInsert = results.data.map(function(row, i) {
         var projNum = parseInt(cleanStr(row[colMap.projectNumber])) || null;
         var projName = cleanStr(row[colMap.projectName]);
         var benefitName = cleanStr(row[colMap.benefitName]);
@@ -838,37 +934,59 @@ function importCSV() {
         var benefitTypes = parts.filter(function(t){ return settings.benefitTypes.indexOf(t) !== -1; });
 
         var pt = cleanStr(row[colMap.projectType]);
-        if (pt && settings.projectTypes.indexOf(pt) === -1) settings.projectTypes.push(pt);
+        if (pt) newProjectTypes[pt] = 1;
 
         return {
-          id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36) + i,
-          projectNumber: projNum,
-          projectName: projName,
-          benefitName: benefitName,
-          benefitTypes: benefitTypes,
-          projectType: pt,
-          startDate: cleanDate(row[colMap.startDate]),
-          completionDate: cleanDate(row[colMap.completionDate]),
-          annualCostSavings: cleanNum(row[colMap.annualCostSavings]),
-          firstCostSavings: null,
-          electricSavings: cleanNum(row[colMap.electricSavings]),
-          districtSteamSavings: cleanNum(row[colMap.districtSteamSavings]),
-          fuelOilSavings: cleanNum(row[colMap.fuelOilSavings]),
-          naturalGasSavings: cleanNum(row[colMap.naturalGasSavings]),
-          propaneSavings: cleanNum(row[colMap.propaneSavings]),
-          peakDemandReduction: cleanNum(row[colMap.peakDemandReduction]),
+          project_number: projNum,
+          project_name: projName,
+          benefit_name: benefitName,
+          benefit_types: benefitTypes,
+          project_type: pt,
+          start_date: cleanDate(row[colMap.startDate]),
+          completion_date: cleanDate(row[colMap.completionDate]),
+          annual_cost_savings: cleanNum(row[colMap.annualCostSavings]),
+          first_cost_savings: null,
+          electric_savings: cleanNum(row[colMap.electricSavings]),
+          district_steam_savings: cleanNum(row[colMap.districtSteamSavings]),
+          fuel_oil_savings: cleanNum(row[colMap.fuelOilSavings]),
+          natural_gas_savings: cleanNum(row[colMap.naturalGasSavings]),
+          propane_savings: cleanNum(row[colMap.propaneSavings]),
+          peak_demand_reduction: cleanNum(row[colMap.peakDemandReduction]),
           narrative: cleanStr(row[colMap.narrative])
         };
       });
 
-      records = newRecords;
-      settings.projectTypes.sort();
-      save(); applyFilters(); updateFilterDropdowns(); populatePT(); renderSettingsLists();
+      // Upsert any new project types first
+      var ptToAdd = Object.keys(newProjectTypes).filter(function(pt){ return settings.projectTypes.indexOf(pt) === -1; });
+      if (ptToAdd.length) {
+        showStatus('Adding new project types...');
+        await sb.from('benefits_project_types').upsert(ptToAdd.map(function(n){ return { name: n }; }), { onConflict: 'name' });
+      }
+
+      // Batch insert records (Supabase handles large batches fine; chunk at 200 to be safe)
+      showStatus('Importing ' + rowsToInsert.length + ' records...');
+      var CHUNK = 200;
+      var inserted = [];
+      var insertError = null;
+      for (var ci = 0; ci < rowsToInsert.length; ci += CHUNK) {
+        var chunk = rowsToInsert.slice(ci, ci + CHUNK);
+        var res = await sb.from('benefits_records').insert(chunk).select();
+        if (res.error) { insertError = res.error; break; }
+        inserted = inserted.concat(res.data || []);
+      }
+
+      if (insertError) {
+        showStatus('Import failed: ' + insertError.message, true);
+        return;
+      }
+
+      hideStatus();
+      await loadFromSupabase();
 
       var sumEl = document.getElementById('impSum');
       sumEl.style.display = 'block';
       sumEl.className = 'imp-sum' + (issues.length ? ' warn' : '');
-      sumEl.innerHTML = '✓ <strong>' + newRecords.length + ' records imported</strong> from ' + esc(file.name) + '.' +
+      sumEl.innerHTML = '✓ <strong>' + inserted.length + ' records imported</strong> from ' + esc(file.name) + ' and saved to Supabase.' +
         (issues.length ? ' <strong>' + issues.length + ' rows had data issues</strong> (imported with defaults):<div class="imp-issues">' + issues.map(esc).join('<br>') + '</div>' : ' No data issues found.');
     }
   });
