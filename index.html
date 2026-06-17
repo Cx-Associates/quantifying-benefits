@@ -38,15 +38,25 @@ input.fi{min-width:160px}
 table{width:100%;border-collapse:collapse}
 th{background:var(--blue);color:#fff;padding:10px 12px;text-align:left;font-size:12px;font-weight:600;white-space:nowrap;cursor:pointer;user-select:none}
 th:hover{background:#004a72}
+th.nosort{cursor:default}
+th.nosort:hover{background:var(--blue)}
 td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top}
-tr:last-child td{border-bottom:none}
-tr:hover td{background:#f0f6fa}
+tr.main-row{cursor:pointer}
+tr.main-row:hover td{background:#f0f6fa}
+tr.detail-row td{background:#f8fafb;border-bottom:2px solid var(--border)}
 .narr{max-width:220px;font-size:12px;color:var(--gray)}
 .badge{display:inline-block;padding:2px 7px;border-radius:12px;font-size:11px;font-weight:600;margin:1px}
 .bb{background:#e0edf5;color:var(--blue)}
 .bo{background:#fef3e2;color:#c47a00}
 .pagination{display:flex;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid var(--border)}
 .pagination span{font-size:12px;color:var(--gray);margin-right:auto}
+.expand-toggle{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;color:var(--gray);font-size:12px;transition:transform .15s}
+.expand-toggle.open{transform:rotate(90deg)}
+.detail-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:14px 8px}
+.detail-item{font-size:12px}
+.detail-item .dl{color:var(--gray);text-transform:uppercase;font-size:10px;letter-spacing:.4px;margin-bottom:3px;font-weight:600}
+.detail-item .dv{font-size:14px;font-weight:600;color:var(--blue)}
+.detail-narr{grid-column:1/-1;font-size:13px;color:#333;line-height:1.6;background:#fff;border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-top:4px}
 .form-card{background:#fff;border-radius:8px;padding:24px;box-shadow:0 1px 4px rgba(0,0,0,.06);max-width:820px}
 .fg{display:flex;flex-direction:column;gap:5px}
 .fg label{font-size:12px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.4px}
@@ -65,6 +75,9 @@ tr:hover td{background:#f0f6fa}
 .chart-card{background:#fff;border-radius:8px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
 .chart-card h3{font-size:13px;font-weight:600;color:var(--blue);margin-bottom:16px}
 .chart-card.full{grid-column:1/-1}
+.info-tip{position:relative;display:inline-block;font-size:13px;color:var(--gray);cursor:help;font-weight:400;margin-left:4px}
+.info-tip-text{visibility:hidden;opacity:0;position:absolute;top:120%;left:0;width:280px;background:#2c3e50;color:#fff;padding:10px 12px;border-radius:6px;font-size:12px;font-weight:400;line-height:1.5;text-transform:none;letter-spacing:normal;z-index:50;transition:opacity .15s;box-shadow:0 4px 12px rgba(0,0,0,.2)}
+.info-tip:hover .info-tip-text,.info-tip:focus .info-tip-text{visibility:visible;opacity:1}
 .settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
 .sc{background:#fff;border-radius:8px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
 .sc h3{font-size:13px;font-weight:700;color:var(--blue);margin-bottom:14px;text-transform:uppercase;letter-spacing:.4px}
@@ -98,7 +111,6 @@ tr:hover td{background:#f0f6fa}
   <button onclick="switchView('data',this)">Data</button>
 </nav>
 
-<!-- BROWSE -->
 <div id="view-browse" class="view active">
   <div class="stat-cards" id="statCards"></div>
   <div class="filter-row">
@@ -122,6 +134,7 @@ tr:hover td{background:#f0f6fa}
   <div class="table-wrap">
     <table>
       <thead><tr>
+        <th class="nosort" style="width:28px"></th>
         <th onclick="sortBy('projectNumber')">Project # ↕</th>
         <th onclick="sortBy('projectName')">Project Name ↕</th>
         <th onclick="sortBy('benefitName')">Benefit ↕</th>
@@ -129,7 +142,6 @@ tr:hover td{background:#f0f6fa}
         <th onclick="sortBy('projectType')">Project Type ↕</th>
         <th onclick="sortBy('annualCostSavings')" class="num">Annual Savings ↕</th>
         <th onclick="sortBy('firstCostSavings')" class="num">First Cost Savings ↕</th>
-        <th onclick="sortBy('electricSavings')" class="num">Electric (kWh) ↕</th>
         <th onclick="sortBy('startDate')">Start ↕</th>
         <th onclick="sortBy('completionDate')">Completion ↕</th>
         <th>Narrative</th>
@@ -145,7 +157,6 @@ tr:hover td{background:#f0f6fa}
   </div>
 </div>
 
-<!-- ADD/EDIT -->
 <div id="view-add" class="view">
   <div class="form-card">
     <h2 style="margin-bottom:20px;color:var(--blue)" id="formTitle">Add New Benefit Record</h2>
@@ -187,35 +198,35 @@ tr:hover td{background:#f0f6fa}
       <div class="sec">Savings</div>
       <div class="fg">
         <label>Annual Cost Savings ($)</label>
-        <input type="number" id="fACS" placeholder="0.00" step="0.01">
+        <input type="number" id="fACS" placeholder="leave blank if unknown" step="0.01">
       </div>
       <div class="fg">
         <label>One Time / First Cost Savings ($)</label>
-        <input type="number" id="fFCS" placeholder="0.00" step="0.01">
+        <input type="number" id="fFCS" placeholder="leave blank if unknown" step="0.01">
       </div>
       <div class="fg">
         <label>Electric Savings (kWh)</label>
-        <input type="number" id="fES" placeholder="0" step="0.01">
+        <input type="number" id="fES" placeholder="leave blank if unknown" step="0.01">
       </div>
       <div class="fg">
         <label>District Steam Savings</label>
-        <input type="number" id="fDSS" placeholder="0" step="0.01">
+        <input type="number" id="fDSS" placeholder="leave blank if unknown" step="0.01">
       </div>
       <div class="fg">
         <label>Fuel Oil Savings</label>
-        <input type="number" id="fFOS" placeholder="0" step="0.01">
+        <input type="number" id="fFOS" placeholder="leave blank if unknown" step="0.01">
       </div>
       <div class="fg">
         <label>Natural Gas Savings</label>
-        <input type="number" id="fNGS" placeholder="0" step="0.01">
+        <input type="number" id="fNGS" placeholder="leave blank if unknown" step="0.01">
       </div>
       <div class="fg">
         <label>Propane Savings</label>
-        <input type="number" id="fPS" placeholder="0" step="0.01">
+        <input type="number" id="fPS" placeholder="leave blank if unknown" step="0.01">
       </div>
       <div class="fg">
         <label>Peak Demand Reduction (kW)</label>
-        <input type="number" id="fPDR" placeholder="0" step="0.01">
+        <input type="number" id="fPDR" placeholder="leave blank if unknown" step="0.01">
       </div>
       <div class="sec">Narrative</div>
       <div class="fg full">
@@ -231,10 +242,16 @@ tr:hover td{background:#f0f6fa}
   </div>
 </div>
 
-<!-- CHARTS -->
 <div id="view-charts" class="view">
   <div class="charts-grid">
-    <div class="chart-card"><h3>Total Annual Cost Savings by Benefit Type</h3><canvas id="cBT"></canvas></div>
+    <div class="chart-card">
+      <h3>Total Annual Cost Savings by Benefit Type
+        <span class="info-tip" tabindex="0">ⓘ
+          <span class="info-tip-text">When a project has multiple benefit types (e.g. Energy Savings + O&amp;M), its savings are split evenly across each selected type so totals don't double-count. This is an approximation for directional insight, not a precise dollar attribution.</span>
+        </span>
+      </h3>
+      <canvas id="cBT"></canvas>
+    </div>
     <div class="chart-card"><h3>Records by Project Type</h3><canvas id="cPT"></canvas></div>
     <div class="chart-card full"><h3>Electric Savings by Project Type (kWh)</h3><canvas id="cEl"></canvas></div>
     <div class="chart-card full"><h3>Top 15 Projects by Annual Cost Savings</h3><canvas id="cTop"></canvas></div>
@@ -242,7 +259,6 @@ tr:hover td{background:#f0f6fa}
   </div>
 </div>
 
-<!-- SETTINGS -->
 <div id="view-settings" class="view">
   <div class="settings-grid">
     <div class="sc">
@@ -258,11 +274,10 @@ tr:hover td{background:#f0f6fa}
   </div>
 </div>
 
-<!-- DATA -->
 <div id="view-data" class="view">
   <div class="data-card">
     <h3>Import CSV</h3>
-    <p>Upload your exported Salesforce CSV. The importer will clean numeric fields, handle NA/missing values, and report any data issues found.</p>
+    <p>Upload your exported Salesforce CSV. The importer will clean numeric fields, treat NA/missing values as unknown (not zero), and report any data issues found.</p>
     <input type="file" id="csvFile" accept=".csv" onchange="importCSV()" style="display:block;margin-bottom:10px">
     <div class="imp-sum" id="impSum"></div>
   </div>
@@ -283,6 +298,7 @@ tr:hover td{background:#f0f6fa}
 <script>
 var records = [], filtered = [], sortCol = 'projectNumber', sortDir = 1, page = 0, editingId = null;
 var PAGE = 25, chartObjs = {};
+var expandedId = null;
 var DEFAULT_BT = ['Code','Safety','IAQ','O&M','Energy Savings','First Cost'];
 var settings = { benefitTypes: DEFAULT_BT.slice(), projectTypes: [] };
 
@@ -319,7 +335,6 @@ function startAdd() {
   switchView('add', document.querySelectorAll('nav button')[1]);
 }
 
-// ── Filters ──────────────────────────────────────────────────
 function applyFilters() {
   var q = (document.getElementById('searchInput').value || '').toLowerCase();
   var bt = document.getElementById('filterBT').value;
@@ -375,33 +390,65 @@ function changePage(d) {
   renderTable();
 }
 
-// ── Table ────────────────────────────────────────────────────
+function toggleExpand(id) {
+  expandedId = (expandedId === id) ? null : id;
+  renderTable();
+}
+
+function fmtVal(v, suffix) {
+  if (v === null || v === undefined) return '<span style="color:#bbb">unknown</span>';
+  return fmt(v) + (suffix || '');
+}
+
+function renderDetailRow(r, colCount) {
+  var html = '<tr class="detail-row"><td colspan="' + colCount + '">';
+  html += '<div class="detail-grid">';
+  html += detailItem('Electric Savings', fmtVal(r.electricSavings, ' kWh'));
+  html += detailItem('District Steam Savings', fmtVal(r.districtSteamSavings));
+  html += detailItem('Fuel Oil Savings', fmtVal(r.fuelOilSavings));
+  html += detailItem('Natural Gas Savings', fmtVal(r.naturalGasSavings));
+  html += detailItem('Propane Savings', fmtVal(r.propaneSavings));
+  html += detailItem('Peak Demand Reduction', fmtVal(r.peakDemandReduction, ' kW'));
+  if (r.narrative) {
+    html += '<div class="detail-narr full">' + esc(r.narrative) + '</div>';
+  }
+  html += '</div></td></tr>';
+  return html;
+}
+
+function detailItem(label, val) {
+  return '<div class="detail-item"><div class="dl">' + label + '</div><div class="dv">' + val + '</div></div>';
+}
+
 function renderTable() {
   var tbody = document.getElementById('tableBody');
   var start = page * PAGE;
   var slice = filtered.slice(start, start + PAGE);
+  var COLS = 11;
   if (!slice.length) {
-    tbody.innerHTML = '<tr><td colspan="12"><div class="empty">No records found.</div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="' + COLS + '"><div class="empty">No records found.</div></td></tr>';
   } else {
     var rows = '';
     for (var i = 0; i < slice.length; i++) {
       var r = slice[i];
+      var isOpen = expandedId === r.id;
       var badges = (r.benefitTypes || []).map(function(t){ return '<span class="badge bb">' + esc(t) + '</span>'; }).join('');
-      var narr = esc((r.narrative || '').substring(0, 110)) + ((r.narrative || '').length > 110 ? '...' : '');
-      rows += '<tr>' +
+      var narr = esc((r.narrative || '').substring(0, 90)) + ((r.narrative || '').length > 90 ? '...' : '');
+      rows += '<tr class="main-row" onclick="toggleExpand(\'' + r.id + '\')">' +
+        '<td><span class="expand-toggle' + (isOpen ? ' open' : '') + '">▶</span></td>' +
         '<td>' + (r.projectNumber || '') + '</td>' +
         '<td><strong>' + esc(r.projectName) + '</strong></td>' +
         '<td>' + esc(r.benefitName) + '</td>' +
         '<td>' + badges + '</td>' +
         '<td><span class="badge bo">' + esc(r.projectType) + '</span></td>' +
-        '<td class="num">' + (r.annualCostSavings ? '$' + fmt(r.annualCostSavings) : '—') + '</td>' +
-        '<td class="num">' + (r.firstCostSavings ? '$' + fmt(r.firstCostSavings) : '—') + '</td>' +
-        '<td class="num">' + (r.electricSavings ? fmt(r.electricSavings) : '—') + '</td>' +
+        '<td class="num">' + (r.annualCostSavings != null ? '$' + fmt(r.annualCostSavings) : '—') + '</td>' +
+        '<td class="num">' + (r.firstCostSavings != null ? '$' + fmt(r.firstCostSavings) : '—') + '</td>' +
         '<td>' + (r.startDate || '—') + '</td>' +
         '<td>' + (r.completionDate || '—') + '</td>' +
         '<td class="narr">' + narr + '</td>' +
-        '<td><button class="btn btn-ghost btn-sm" onclick="editRecord(\'' + r.id + '\')">Edit</button></td>' +
+        '<td onclick="event.stopPropagation()"><button class="btn btn-ghost btn-sm" onclick="editRecord(\'' + r.id + '\')">Edit</button></td>' +
         '</tr>';
+      if (isOpen) rows += renderDetailRow(r, COLS);
     }
     tbody.innerHTML = rows;
   }
@@ -411,61 +458,74 @@ function renderTable() {
   document.getElementById('recCount').textContent = records.length + ' records';
 }
 
-// ── Stats ────────────────────────────────────────────────────
+function sumSkipNull(arr, field) {
+  var sum = 0;
+  for (var i = 0; i < arr.length; i++) {
+    var v = arr[i][field];
+    if (v !== null && v !== undefined) sum += v;
+  }
+  return sum;
+}
+
 function updateStats() {
   var src = filtered.length ? filtered : records;
-  var totalCost = 0, totalFC = 0, totalElec = 0, totalGas = 0, totalDem = 0;
+  var totalCost = sumSkipNull(src, 'annualCostSavings');
+  var totalFC   = sumSkipNull(src, 'firstCostSavings');
+  var totalElec = sumSkipNull(src, 'electricSavings');
+  var totalGas  = sumSkipNull(src, 'naturalGasSavings');
+  var totalDem  = sumSkipNull(src, 'peakDemandReduction');
   var projSet = {};
-  src.forEach(function(r) {
-    totalCost += r.annualCostSavings || 0;
-    totalFC   += r.firstCostSavings || 0;
-    totalElec += r.electricSavings || 0;
-    totalGas  += r.naturalGasSavings || 0;
-    totalDem  += r.peakDemandReduction || 0;
-    if (r.projectNumber) projSet[r.projectNumber] = 1;
-  });
+  src.forEach(function(r) { if (r.projectNumber) projSet[r.projectNumber] = 1; });
   var projs = Object.keys(projSet).length;
   document.getElementById('statCards').innerHTML =
     card('Records', src.length, projs + ' projects') +
-    card('Annual Cost Savings', '$' + fmtK(totalCost), 'total') +
-    card('First Cost Savings', '$' + fmtK(totalFC), 'total') +
-    card('Electric Savings', fmtK(totalElec), 'kWh') +
-    card('Natural Gas', fmtK(totalGas), 'units saved') +
-    card('Peak Demand Reduction', fmtK(totalDem), 'kW');
+    card('Annual Cost Savings', '$' + fmtK(totalCost), 'total (excl. unknown)') +
+    card('First Cost Savings', '$' + fmtK(totalFC), 'total (excl. unknown)') +
+    card('Electric Savings', fmtK(totalElec), 'kWh (excl. unknown)') +
+    card('Natural Gas', fmtK(totalGas), 'units saved (excl. unknown)') +
+    card('Peak Demand Reduction', fmtK(totalDem), 'kW (excl. unknown)');
 }
 
 function card(label, val, sub) {
   return '<div class="stat-card"><div class="lbl">' + label + '</div><div class="val">' + val + '</div><div class="sub">' + sub + '</div></div>';
 }
 
-// ── Charts ───────────────────────────────────────────────────
 var COLORS = ['#005a88','#f8991c','#27ae60','#8e44ad','#e67e22','#2980b9','#c0392b','#1abc9c','#d35400','#7f8c8d','#16a085','#2c3e50'];
 
 function renderCharts() {
-  // Savings by benefit type
   var btMap = {};
   records.forEach(function(r) {
-    (r.benefitTypes || []).forEach(function(t) { btMap[t] = (btMap[t] || 0) + (r.annualCostSavings || 0); });
+    var types = r.benefitTypes || [];
+    if (!types.length) return;
+    var val = r.annualCostSavings;
+    if (val === null || val === undefined) return;
+    var share = val / types.length;
+    types.forEach(function(t) { btMap[t] = (btMap[t] || 0) + share; });
   });
   var btE = objSort(btMap);
-  mkBar('cBT', btE[0], btE[1], 'Annual Cost Savings ($)', '#005a88');
+  mkBar('cBT', btE[0], btE[1], 'Annual Cost Savings ($, split evenly across types)', '#005a88');
 
-  // Records by project type
   var ptMap = {};
   records.forEach(function(r) { var k = r.projectType || 'Unknown'; ptMap[k] = (ptMap[k] || 0) + 1; });
   var ptE = objSort(ptMap);
   mkDoughnut('cPT', ptE[0], ptE[1]);
 
-  // Electric by project type
   var elMap = {};
-  records.forEach(function(r) { var k = r.projectType || 'Unknown'; elMap[k] = (elMap[k] || 0) + (r.electricSavings || 0); });
+  records.forEach(function(r) {
+    if (r.electricSavings === null || r.electricSavings === undefined) return;
+    var k = r.projectType || 'Unknown';
+    elMap[k] = (elMap[k] || 0) + r.electricSavings;
+  });
   var elE = objSort(elMap);
   mkBar('cEl', elE[0], elE[1], 'kWh', '#f8991c');
 
-  // Top 15 projects
   var projMap = {};
-  records.forEach(function(r) { var k = '#' + r.projectNumber + ' ' + r.projectName; projMap[k] = (projMap[k] || 0) + (r.annualCostSavings || 0); });
-  var projArr = Object.entries ? Object.entries(projMap) : Object.keys(projMap).map(function(k){ return [k, projMap[k]]; });
+  records.forEach(function(r) {
+    if (r.annualCostSavings === null || r.annualCostSavings === undefined) return;
+    var k = '#' + r.projectNumber + ' ' + r.projectName;
+    projMap[k] = (projMap[k] || 0) + r.annualCostSavings;
+  });
+  var projArr = Object.keys(projMap).map(function(k){ return [k, projMap[k]]; });
   projArr.sort(function(a,b){ return b[1]-a[1]; });
   projArr = projArr.slice(0, 15);
   if (chartObjs['cTop']) chartObjs['cTop'].destroy();
@@ -475,12 +535,12 @@ function renderCharts() {
     options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
   });
 
-  // By completion year
   var yearMap = {};
   records.forEach(function(r) {
     if (!r.completionDate) return;
+    if (r.annualCostSavings === null || r.annualCostSavings === undefined) return;
     var yr = r.completionDate.substring(0, 4);
-    if (yr && yr.length === 4) yearMap[yr] = (yearMap[yr] || 0) + (r.annualCostSavings || 0);
+    if (yr && yr.length === 4) yearMap[yr] = (yearMap[yr] || 0) + r.annualCostSavings;
   });
   var years = Object.keys(yearMap).sort();
   var yCard = document.getElementById('yearChartCard');
@@ -516,7 +576,6 @@ function mkDoughnut(id, labels, data) {
   });
 }
 
-// ── Form ─────────────────────────────────────────────────────
 function populatePT() {
   var sel = document.getElementById('fPT');
   var cur = sel.value;
@@ -564,17 +623,24 @@ function editRecord(id) {
   document.getElementById('fPT').value = r.projectType || '';
   document.getElementById('fSD').value = r.startDate || '';
   document.getElementById('fCD').value = r.completionDate || '';
-  document.getElementById('fACS').value = r.annualCostSavings || '';
-  document.getElementById('fFCS').value = r.firstCostSavings || '';
-  document.getElementById('fES').value = r.electricSavings || '';
-  document.getElementById('fDSS').value = r.districtSteamSavings || '';
-  document.getElementById('fFOS').value = r.fuelOilSavings || '';
-  document.getElementById('fNGS').value = r.naturalGasSavings || '';
-  document.getElementById('fPS').value = r.propaneSavings || '';
-  document.getElementById('fPDR').value = r.peakDemandReduction || '';
+  document.getElementById('fACS').value = (r.annualCostSavings != null ? r.annualCostSavings : '');
+  document.getElementById('fFCS').value = (r.firstCostSavings != null ? r.firstCostSavings : '');
+  document.getElementById('fES').value = (r.electricSavings != null ? r.electricSavings : '');
+  document.getElementById('fDSS').value = (r.districtSteamSavings != null ? r.districtSteamSavings : '');
+  document.getElementById('fFOS').value = (r.fuelOilSavings != null ? r.fuelOilSavings : '');
+  document.getElementById('fNGS').value = (r.naturalGasSavings != null ? r.naturalGasSavings : '');
+  document.getElementById('fPS').value = (r.propaneSavings != null ? r.propaneSavings : '');
+  document.getElementById('fPDR').value = (r.peakDemandReduction != null ? r.peakDemandReduction : '');
   document.getElementById('fNarr').value = r.narrative || '';
   renderPills(r.benefitTypes || []);
   switchView('add', document.querySelectorAll('nav button')[1]);
+}
+
+function numOrNull(id) {
+  var v = document.getElementById(id).value;
+  if (v === '' || v === null || v === undefined) return null;
+  var n = parseFloat(v);
+  return isNaN(n) ? null : n;
 }
 
 function saveRecord() {
@@ -587,14 +653,14 @@ function saveRecord() {
     projectType: document.getElementById('fPT').value,
     startDate: document.getElementById('fSD').value || null,
     completionDate: document.getElementById('fCD').value || null,
-    annualCostSavings: parseFloat(document.getElementById('fACS').value) || 0,
-    firstCostSavings: parseFloat(document.getElementById('fFCS').value) || 0,
-    electricSavings: parseFloat(document.getElementById('fES').value) || 0,
-    districtSteamSavings: parseFloat(document.getElementById('fDSS').value) || 0,
-    fuelOilSavings: parseFloat(document.getElementById('fFOS').value) || 0,
-    naturalGasSavings: parseFloat(document.getElementById('fNGS').value) || 0,
-    propaneSavings: parseFloat(document.getElementById('fPS').value) || 0,
-    peakDemandReduction: parseFloat(document.getElementById('fPDR').value) || 0,
+    annualCostSavings: numOrNull('fACS'),
+    firstCostSavings: numOrNull('fFCS'),
+    electricSavings: numOrNull('fES'),
+    districtSteamSavings: numOrNull('fDSS'),
+    fuelOilSavings: numOrNull('fFOS'),
+    naturalGasSavings: numOrNull('fNGS'),
+    propaneSavings: numOrNull('fPS'),
+    peakDemandReduction: numOrNull('fPDR'),
     narrative: document.getElementById('fNarr').value.trim()
   };
   if (editingId) {
@@ -622,7 +688,6 @@ function deleteRecord() {
   switchView('browse', document.querySelectorAll('nav button')[0]);
 }
 
-// ── Autocomplete ─────────────────────────────────────────────
 function acProject(field) {
   var projects = {};
   records.forEach(function(r){ if (r.projectNumber) projects[r.projectNumber] = r.projectName; });
@@ -654,7 +719,6 @@ document.addEventListener('click', function(e) {
   if (!e.target.closest('.ac-wrap')) document.querySelectorAll('.ac-list').forEach(function(el){ el.style.display = 'none'; });
 });
 
-// ── Filter Dropdowns ─────────────────────────────────────────
 function updateFilterDropdowns() {
   var allBT = [];
   var btSeen = {};
@@ -672,7 +736,6 @@ function updateFilterDropdowns() {
   btSel.value = btV; ptSel.value = ptV;
 }
 
-// ── Settings ─────────────────────────────────────────────────
 function renderSettingsLists() {
   ['benefitType','projectType'].forEach(function(key) {
     var lk = key + 's';
@@ -699,15 +762,14 @@ function removeItem(key, idx) {
   save(); renderSettingsLists(); populatePT(); renderPills(getSelectedPills());
 }
 
-// ── CSV Import ───────────────────────────────────────────────
 var NA_VALS = { 'na':1,'n/a':1,'#n/a':1,'null':1,'none':1,'':1,'undefined':1 };
 
 function cleanNum(v) {
-  if (v === null || v === undefined) return 0;
+  if (v === null || v === undefined) return null;
   var s = String(v).trim();
-  if (NA_VALS[s.toLowerCase()]) return 0;
+  if (NA_VALS[s.toLowerCase()]) return null;
   var n = parseFloat(s.replace(/,/g,''));
-  return isNaN(n) ? 0 : n;
+  return isNaN(n) ? null : n;
 }
 
 function cleanStr(v) {
@@ -726,8 +788,8 @@ function cleanDate(v) {
 
 function findCol(cols, patterns) {
   for (var i = 0; i < patterns.length; i++) {
-    var found = cols.find ? cols.find(function(c){ return patterns[i].test(c); }) : null;
-    if (!found) { for (var j = 0; j < cols.length; j++) { if (patterns[i].test(cols[j])) { found = cols[j]; break; } } }
+    var found = '';
+    for (var j = 0; j < cols.length; j++) { if (patterns[i].test(cols[j])) { found = cols[j]; break; } }
     if (found) return found;
   }
   return '';
@@ -740,9 +802,11 @@ function importCSV() {
     header: true, skipEmptyLines: true,
     complete: function(results) {
       var cols = results.meta.fields || [];
+      var blankCol = '';
+      for (var c = 0; c < cols.length; c++) { if (cols[c].trim() === '') { blankCol = cols[c]; break; } }
       var colMap = {
         projectNumber: findCol(cols, [/project.*number/i, /proj.*num/i]),
-        projectName:   findCol(cols, [/project.*name/i, /proj.*name/i]) || (cols.filter ? cols.filter(function(c){ return c.trim()===''; })[0] : ''),
+        projectName:   findCol(cols, [/project.*name/i, /proj.*name/i]) || blankCol,
         benefitName:   findCol(cols, [/benefit.*name/i]),
         benefitType:   findCol(cols, [/benefit.*type/i]),
         annualCostSavings: findCol(cols, [/annual.*cost/i, /cost.*sav/i]),
@@ -786,7 +850,7 @@ function importCSV() {
           startDate: cleanDate(row[colMap.startDate]),
           completionDate: cleanDate(row[colMap.completionDate]),
           annualCostSavings: cleanNum(row[colMap.annualCostSavings]),
-          firstCostSavings: 0,
+          firstCostSavings: null,
           electricSavings: cleanNum(row[colMap.electricSavings]),
           districtSteamSavings: cleanNum(row[colMap.districtSteamSavings]),
           fuelOilSavings: cleanNum(row[colMap.fuelOilSavings]),
@@ -810,7 +874,6 @@ function importCSV() {
   });
 }
 
-// ── Export ───────────────────────────────────────────────────
 function exportJSON() {
   dl(new Blob([JSON.stringify({records: records, settings: settings}, null, 2)], {type:'application/json'}), 'cxa_benefits.json');
 }
@@ -821,7 +884,9 @@ function exportCSVData() {
   var rows = [headers.join(',')];
   records.forEach(function(r) {
     rows.push(headers.map(function(h) {
-      var v = h === 'benefitTypes' ? (r[h]||[]).join('; ') : (r[h] != null ? r[h] : '');
+      var v;
+      if (h === 'benefitTypes') v = (r[h]||[]).join('; ');
+      else v = (r[h] != null ? r[h] : '');
       return JSON.stringify(String(v));
     }).join(','));
   });
@@ -834,26 +899,24 @@ function dl(blob, name) {
   a.download = name; a.click();
 }
 
-// ── Data Stats ───────────────────────────────────────────────
 function updateDataStats() {
   var el = document.getElementById('dataStats');
   if (!el) return;
   var projSet = {};
-  var withDates = 0, totalCost = 0;
+  var withDates = 0;
+  var totalCost = sumSkipNull(records, 'annualCostSavings');
   records.forEach(function(r) {
     if (r.projectNumber) projSet[r.projectNumber] = 1;
     if (r.completionDate) withDates++;
-    totalCost += r.annualCostSavings || 0;
   });
   el.innerHTML = 'Total records: <strong>' + records.length + '</strong><br>' +
     'Unique projects: <strong>' + Object.keys(projSet).length + '</strong><br>' +
     'Records with completion date: <strong>' + withDates + '</strong><br>' +
     'Benefit types defined: <strong>' + settings.benefitTypes.length + '</strong><br>' +
     'Project types defined: <strong>' + settings.projectTypes.length + '</strong><br>' +
-    'Total annual cost savings: <strong>$' + fmt(totalCost) + '</strong>';
+    'Total annual cost savings: <strong>$' + fmt(totalCost) + '</strong> (excl. unknown)';
 }
 
-// ── Utils ────────────────────────────────────────────────────
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function fmt(n){ return Number(n).toLocaleString('en-US',{maximumFractionDigits:1}); }
 function fmtK(n){ return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(0)+'K':fmt(n); }
